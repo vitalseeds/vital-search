@@ -450,10 +450,20 @@ class VitalSearchPopup extends HTMLElement {
         searchInput.setAttribute('aria-expanded', 'true');
         statusEl.textContent = `${ids.length} result${ids.length === 1 ? '' : 's'} found`;
 
-        // Group results by type: categories first, then products
+        // Group results by type: categories first, then products grouped by top category
         const results = ids.map(id => this.items.find(x => x.id === id)).filter(Boolean);
         const categories = results.filter(item => item.type === 'category');
         const products = results.filter(item => item.type !== 'category');
+
+        // Group products by their top-level category
+        const productsByTopCat = {};
+        products.forEach(item => {
+            const topCat = item.top_category || 'Products';
+            if (!productsByTopCat[topCat]) {
+                productsByTopCat[topCat] = [];
+            }
+            productsByTopCat[topCat].push(item);
+        });
 
         let html = '';
         let resultIndex = 0;
@@ -463,10 +473,11 @@ class VitalSearchPopup extends HTMLElement {
             html += categories.map(item => this.renderResultItem(item, resultIndex++, query)).join('');
         }
 
-        if (products.length > 0) {
-            html += '<div class="section-heading">Products</div>';
-            html += products.map(item => this.renderResultItem(item, resultIndex++, query)).join('');
-        }
+        // Render products grouped by their top-level category
+        Object.keys(productsByTopCat).forEach(topCat => {
+            html += `<div class="section-heading">${this.escapeHtml(topCat)}</div>`;
+            html += productsByTopCat[topCat].map(item => this.renderResultItem(item, resultIndex++, query)).join('');
+        });
 
         resultsEl.innerHTML = html;
     }

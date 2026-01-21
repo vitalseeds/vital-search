@@ -137,6 +137,23 @@ add_action(VITAL_SEARCH_CRON_HOOK, 'vital_search_export_json');
 function vital_search_get_products() {
     $products = [];
 
+    // Get selected heading categories
+    $heading_category_ids = get_option('vital_search_heading_categories', []);
+    $heading_categories = [];
+    if (!empty($heading_category_ids)) {
+        foreach ($heading_category_ids as $cat_id) {
+            $term = get_term($cat_id, 'product_cat');
+            if ($term && !is_wp_error($term)) {
+                // Calculate depth (number of ancestors) - lower = higher in hierarchy
+                $ancestors = get_ancestors($cat_id, 'product_cat', 'taxonomy');
+                $heading_categories[$cat_id] = [
+                    'term' => $term,
+                    'depth' => count($ancestors),
+                ];
+            }
+        }
+    }
+
     $args = [
         'post_type' => 'product',
         'post_status' => 'publish',
@@ -155,10 +172,15 @@ function vital_search_get_products() {
         $thumbnail_url = vital_search_get_thumbnail_url($product->get_image_id());
         $terms = get_the_terms($product_id, 'product_cat');
         $categories = [];
+        $top_category = null;
+
         if ($terms && !is_wp_error($terms)) {
             foreach ($terms as $term) {
                 $categories[] = $term->name;
             }
+
+            // Find the best heading category for this product
+            $top_category = vital_search_get_heading_category($terms, $heading_categories);
         }
 
         $latin_name = function_exists('get_field') ? get_field('latin_name', $product_id) : null;
@@ -171,11 +193,67 @@ function vital_search_get_products() {
             'url' => get_permalink($product_id),
             'thumbnail' => $thumbnail_url,
             'category' => $categories,
+            'top_category' => $top_category,
             'sku' => $product->get_sku(),
         ];
     }
 
     return $products;
+}
+
+/**
+ * Find the best heading category for a product based on its terms
+ *
+ * Checks which selected heading categories the product belongs to
+ * (either directly or as a descendant) and returns the one highest in the hierarchy.
+ *
+ * @param array $product_terms Product's category terms
+ * @param array $heading_categories Selected heading categories with depth info
+ * @return string|null Category name or null if none found
+ */
+function vital_search_get_heading_category($product_terms, $heading_categories) {
+    if (empty($heading_categories)) {
+        // Fallback: find top-level category
+        foreach ($product_terms as $term) {
+            if ($term->parent == 0) {
+                return $term->name;
+            }
+        }
+        // Traverse up to find top-level
+        $first_term = reset($product_terms);
+        $ancestors = get_ancestors($first_term->term_id, 'product_cat', 'taxonomy');
+        if (!empty($ancestors)) {
+            $top_term = get_term(end($ancestors), 'product_cat');
+            if ($top_term && !is_wp_error($top_term)) {
+                return $top_term->name;
+            }
+        }
+        return $first_term->name;
+    }
+
+    // Build a list of all category IDs the product belongs to (including ancestors)
+    $product_category_ids = [];
+    foreach ($product_terms as $term) {
+        $product_category_ids[] = $term->term_id;
+        $ancestors = get_ancestors($term->term_id, 'product_cat', 'taxonomy');
+        $product_category_ids = array_merge($product_category_ids, $ancestors);
+    }
+    $product_category_ids = array_unique($product_category_ids);
+
+    // Find matching heading categories and pick the one with lowest depth (highest in hierarchy)
+    $best_match = null;
+    $best_depth = PHP_INT_MAX;
+
+    foreach ($heading_categories as $cat_id => $cat_info) {
+        if (in_array($cat_id, $product_category_ids)) {
+            if ($cat_info['depth'] < $best_depth) {
+                $best_depth = $cat_info['depth'];
+                $best_match = $cat_info['term']->name;
+            }
+        }
+    }
+
+    return $best_match;
 }
 
 /**
@@ -376,16 +454,67 @@ function vital_search_admin_page() {
     $json_exists = file_exists($json_path);
     $version = get_option('vital_search_version', 0);
 
+    // Handle settings save
+    if (isset($_POST['vital_search_save_settings']) && check_admin_referer('vital_search_settings')) {
+        $heading_categories = isset($_POST['vital_search_heading_categories']) ? array_map('intval', $_POST['vital_search_heading_categories']) : [];
+        update_option('vital_search_heading_categories', $heading_categories);
+        echo '<div class="notice notice-success"><p>Settings saved.</p></div>';
+    }
+
     if (isset($_POST['vital_search_regenerate']) && check_admin_referer('vital_search_regenerate_index')) {
         $version = vital_search_export_json();
         echo '<div class="notice notice-success"><p>Search index regenerated! Version: ' . esc_html($version) . '</p></div>';
         $json_exists = true;
     }
 
+    $heading_categories = get_option('vital_search_heading_categories', []);
+
+    // Get all product categories for the multiselect
+    $all_categories = get_terms([
+        'taxonomy' => 'product_cat',
+        'hide_empty' => false,
+        'orderby' => 'name',
+    ]);
+
     ?>
     <div class="wrap">
         <h1>Vital Search Index</h1>
 
+        <h2>Settings</h2>
+        <form method="post">
+            <?php wp_nonce_field('vital_search_settings'); ?>
+            <table class="form-table">
+                <tr>
+                    <th scope="row">
+                        <label for="vital_search_heading_categories">Search result headings</label>
+                    </th>
+                    <td>
+                        <select name="vital_search_heading_categories[]" id="vital_search_heading_categories" multiple="multiple" style="min-width: 300px; min-height: 200px;">
+                            <?php
+                            if (!is_wp_error($all_categories)) {
+                                echo vital_search_render_category_options($all_categories, 0, $heading_categories);
+                            }
+                            ?>
+                        </select>
+                        <p class="description">
+                            Select product categories to use as search result headings.
+                            <br>Products will be grouped under the highest selected category in their hierarchy.
+                            <br>For example, if both <em>Seed</em> and <em>Vegetable Seed</em> are selected, vegetable products will be displayed under Seed.
+                            <br>Hold Ctrl/Cmd to select multiple categories.
+                        </p>
+                    </td>
+                </tr>
+            </table>
+            <p>
+                <button type="submit" name="vital_search_save_settings" class="button button-secondary">
+                    Save Settings
+                </button>
+            </p>
+        </form>
+
+        <hr>
+
+        <h2>Index Status</h2>
         <table class="form-table">
             <tr>
                 <th>JSON File</th>
@@ -417,12 +546,44 @@ function vital_search_admin_page() {
             </p>
         </form>
 
+        <hr>
+
         <h2>Shortcode Usage</h2>
         <p><code>[vital_search]</code> - Adds a search button</p>
         <p>Optional attributes: <code>button_text="Search"</code>, <code>placeholder="Search"</code></p>
         <p><em>Note: The old <code>[vs_product_search]</code> shortcode still works for backward compatibility.</em></p>
     </div>
     <?php
+}
+
+/**
+ * Render hierarchical category options for the multiselect
+ *
+ * @param array $categories All categories
+ * @param int $parent Parent term ID
+ * @param array $selected Selected category IDs
+ * @param int $depth Current depth for indentation
+ * @return string HTML options
+ */
+function vital_search_render_category_options($categories, $parent = 0, $selected = [], $depth = 0) {
+    $html = '';
+    foreach ($categories as $category) {
+        if ($category->parent != $parent) {
+            continue;
+        }
+        $indent = str_repeat('— ', $depth);
+        $is_selected = in_array($category->term_id, $selected) ? 'selected' : '';
+        $html .= sprintf(
+            '<option value="%d" %s>%s%s</option>',
+            $category->term_id,
+            $is_selected,
+            $indent,
+            esc_html($category->name)
+        );
+        // Recursively add children
+        $html .= vital_search_render_category_options($categories, $category->term_id, $selected, $depth + 1);
+    }
+    return $html;
 }
 
 /**
