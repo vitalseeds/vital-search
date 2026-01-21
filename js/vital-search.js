@@ -194,20 +194,39 @@ class VitalSearchPopup extends HTMLElement {
 
                 @media (max-width: 640px) {
                     :host {
-                        padding-top: 20px;
+                        padding-top: 0;
+                        align-items: stretch;
                     }
 
                     #container {
-                        width: 95%;
+                        width: 100%;
+                        max-width: none;
+                        height: 100%;
+                        border-radius: 0;
                         padding: 1rem;
+                        display: flex;
+                        flex-direction: column;
+                        box-sizing: border-box;
                     }
 
                     #close {
                         display: flex;
+                        position: static;
+                        width: 44px;
+                        height: 44px;
+                        margin-bottom: 0.75rem;
+                        align-self: flex-end;
+                    }
+
+                    #close svg {
+                        width: 28px;
+                        height: 28px;
                     }
 
                     #results {
-                        max-height: 60vh;
+                        flex: 1;
+                        max-height: none;
+                        overflow-y: auto;
                     }
                 }
             </style>
