@@ -24,15 +24,21 @@ define('VITAL_SEARCH_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('VITAL_SEARCH_CRON_HOOK', 'vital_search_export');
 
 /**
+ * Schedule the daily cron job if not already scheduled
+ */
+function vital_search_schedule_cron() {
+    if (!wp_next_scheduled(VITAL_SEARCH_CRON_HOOK)) {
+        wp_schedule_event(strtotime('today 3:00am'), 'daily', VITAL_SEARCH_CRON_HOOK);
+    }
+}
+
+/**
  * Schedule cron on plugin activation
  */
 function vital_search_activate() {
     vital_search_rewrite_rule();
     flush_rewrite_rules();
-
-    if (!wp_next_scheduled(VITAL_SEARCH_CRON_HOOK)) {
-        wp_schedule_event(strtotime('today 3:00am'), 'daily', VITAL_SEARCH_CRON_HOOK);
-    }
+    vital_search_schedule_cron();
 }
 register_activation_hook(__FILE__, 'vital_search_activate');
 
@@ -45,15 +51,8 @@ function vital_search_deactivate() {
 }
 register_deactivation_hook(__FILE__, 'vital_search_deactivate');
 
-/**
- * Schedule cron if not already scheduled (in case missed)
- */
-function vital_search_init_cron() {
-    if (!wp_next_scheduled(VITAL_SEARCH_CRON_HOOK)) {
-        wp_schedule_event(strtotime('today 3:00am'), 'daily', VITAL_SEARCH_CRON_HOOK);
-    }
-}
-add_action('init', 'vital_search_init_cron');
+// Ensure cron is scheduled on init (in case missed or after re-activation)
+add_action('init', 'vital_search_schedule_cron');
 
 /**
  * Register /search rewrite rule
@@ -85,6 +84,19 @@ function vital_search_template($template) {
     return $template;
 }
 add_filter('template_include', 'vital_search_template');
+
+/**
+ * Get thumbnail URL for an attachment ID, with placeholder fallback
+ *
+ * @param int $thumbnail_id Attachment ID (can be 0 or empty)
+ * @return string Thumbnail URL
+ */
+function vital_search_get_thumbnail_url($thumbnail_id) {
+    if ($thumbnail_id) {
+        return wp_get_attachment_image_url($thumbnail_id, 'woocommerce_thumbnail');
+    }
+    return wc_placeholder_img_src('woocommerce_thumbnail');
+}
 
 /**
  * Export products and categories to JSON file
@@ -140,11 +152,7 @@ function vital_search_get_products() {
 
         if ($product->get_catalog_visibility() === 'hidden') continue;
 
-        $thumbnail_id = $product->get_image_id();
-        $thumbnail_url = $thumbnail_id
-            ? wp_get_attachment_image_url($thumbnail_id, 'woocommerce_thumbnail')
-            : wc_placeholder_img_src('woocommerce_thumbnail');
-
+        $thumbnail_url = vital_search_get_thumbnail_url($product->get_image_id());
         $terms = get_the_terms($product_id, 'product_cat');
         $categories = [];
         if ($terms && !is_wp_error($terms)) {
@@ -195,9 +203,7 @@ function vital_search_get_categories() {
 
     foreach ($terms as $term) {
         $thumbnail_id = get_term_meta($term->term_id, 'thumbnail_id', true);
-        $thumbnail_url = $thumbnail_id
-            ? wp_get_attachment_image_url($thumbnail_id, 'woocommerce_thumbnail')
-            : wc_placeholder_img_src('woocommerce_thumbnail');
+        $thumbnail_url = vital_search_get_thumbnail_url($thumbnail_id);
 
         $categories[] = [
             'id' => 'category-' . $term->term_id,
@@ -210,6 +216,40 @@ function vital_search_get_categories() {
     }
 
     return $categories;
+}
+
+/**
+ * Render a search trigger button/link
+ *
+ * @param array $args {
+ *     @type string $button_text  Screen reader text for the button
+ *     @type string $button_class CSS class(es) for the link
+ *     @type string $placeholder  Placeholder text for search input
+ * }
+ * @return string HTML for the search trigger link
+ */
+function vital_search_render_trigger($args = []) {
+    $args = wp_parse_args($args, [
+        'button_text' => __('Search', 'vital-search'),
+        'button_class' => 'vital-search-button',
+        'placeholder' => __('Search', 'vital-search'),
+    ]);
+
+    $version = get_option('vital_search_version', time());
+    $search_url = home_url('/search');
+
+    return sprintf(
+        '<a href="%s" class="%s" data-vital-search-trigger data-vital-search-version="%s" data-vital-search-placeholder="%s">' .
+        '<span class="screen-reader-text">%s</span>' .
+        '<svg width="20" height="20" class="search-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' .
+        '<path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>' .
+        '</svg></a>',
+        esc_url($search_url),
+        esc_attr($args['button_class']),
+        esc_attr($version),
+        esc_attr($args['placeholder']),
+        esc_html($args['button_text'])
+    );
 }
 
 /**
@@ -227,26 +267,10 @@ function vital_search_shortcode($atts) {
 
     vital_search_enqueue_assets();
 
-    $version = get_option('vital_search_version', time());
-    $search_url = home_url('/search');
-
-    ob_start();
-    ?>
-    <a href="<?php echo esc_url($search_url); ?>"
-       class="<?php echo esc_attr($atts['button_class']); ?>"
-       data-vital-search-trigger
-       data-vital-search-version="<?php echo esc_attr($version); ?>"
-       data-vital-search-placeholder="<?php echo esc_attr($atts['placeholder']); ?>">
-        <span class="screen-reader-text"><?php echo esc_html($atts['button_text']); ?></span>
-        <svg width="20" height="20" class="search-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-    </a>
-    <?php
-    return ob_get_clean();
+    return vital_search_render_trigger($atts);
 }
 add_shortcode('vital_search', 'vital_search_shortcode');
-
-// Keep backward compatibility with old shortcode
-add_shortcode('vs_product_search', 'vital_search_shortcode');
+add_shortcode('vs_product_search', 'vital_search_shortcode'); // Backward compatibility
 
 /**
  * Add search link as last item in primary navigation menu
@@ -255,24 +279,17 @@ add_shortcode('vs_product_search', 'vital_search_shortcode');
  * JavaScript enhances the link to open the search popup.
  */
 function vital_search_add_to_nav_menu($items, $args) {
-    // Only add to primary menu
     if ($args->theme_location !== 'primary') {
         return $items;
     }
 
     vital_search_enqueue_assets();
-    $version = get_option('vital_search_version', time());
-    $search_url = home_url('/search');
-    $placeholder = esc_attr__('Search', 'vital-search');
 
-    $search_item = '<li class="menu-item vital-search-menu-item">';
-    $search_item .= '<a href="' . esc_url($search_url) . '" class="vital-search-button vital-search-button--header" data-vital-search-trigger data-vital-search-version="' . esc_attr($version) . '" data-vital-search-placeholder="' . $placeholder . '">';
-    $search_item .= '<span class="screen-reader-text">' . esc_html__('Search', 'vital-search') . '</span>';
-    $search_item .= '<svg width="20" height="20" class="search-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>';
-    $search_item .= '</a>';
-    $search_item .= '</li>';
+    $trigger = vital_search_render_trigger([
+        'button_class' => 'vital-search-button vital-search-button--header',
+    ]);
 
-    return $items . $search_item;
+    return $items . '<li class="menu-item vital-search-menu-item">' . $trigger . '</li>';
 }
 add_filter('wp_nav_menu_items', 'vital_search_add_to_nav_menu', 10, 2);
 

@@ -420,37 +420,12 @@ class VitalSearchPopup extends HTMLElement {
 
         if (categories.length > 0) {
             html += '<div class="section-heading">Categories</div>';
-            html += categories.map(item => {
-                const index = resultIndex++;
-                return `
-                    <a href="${this.escapeHtml(item.url)}" class="search-item" role="option" id="result-${index}" aria-selected="false">
-                        <img src="${this.escapeHtml(item.thumbnail)}" alt="" loading="lazy">
-                        <div class="item-content">
-                            <span class="title">${this.highlight(item.title, query)}</span>
-                            <div class="meta">
-                                <span class="count-badge">${item.count} products</span>
-                            </div>
-                        </div>
-                    </a>
-                `;
-            }).join('');
+            html += categories.map(item => this.renderResultItem(item, resultIndex++, query)).join('');
         }
 
         if (products.length > 0) {
             html += '<div class="section-heading">Products</div>';
-            html += products.map(item => {
-                const index = resultIndex++;
-                const meta = item.latin_name ? `<em>${this.escapeHtml(item.latin_name)}</em>` : '';
-                return `
-                    <a href="${this.escapeHtml(item.url)}" class="search-item" role="option" id="result-${index}" aria-selected="false">
-                        <img src="${this.escapeHtml(item.thumbnail)}" alt="" loading="lazy">
-                        <div class="item-content">
-                            <span class="title">${this.highlight(item.title, query)}</span>
-                            <div class="meta">${meta}</div>
-                        </div>
-                    </a>
-                `;
-            }).join('');
+            html += products.map(item => this.renderResultItem(item, resultIndex++, query)).join('');
         }
 
         resultsEl.innerHTML = html;
@@ -461,6 +436,33 @@ class VitalSearchPopup extends HTMLElement {
         const escaped = this.escapeHtml(text);
         const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi');
         return escaped.replace(regex, '<mark>$1</mark>');
+    }
+
+    /**
+     * Render a single search result item
+     *
+     * @param {Object} item - The item to render
+     * @param {number} index - The result index for aria attributes
+     * @param {string} query - The search query for highlighting
+     * @returns {string} HTML string
+     */
+    renderResultItem(item, index, query) {
+        let meta = '';
+        if (item.type === 'category') {
+            meta = `<span class="count-badge">${item.count} products</span>`;
+        } else if (item.latin_name) {
+            meta = `<em>${this.escapeHtml(item.latin_name)}</em>`;
+        }
+
+        return `
+            <a href="${this.escapeHtml(item.url)}" class="search-item" role="option" id="result-${index}" aria-selected="false">
+                <img src="${this.escapeHtml(item.thumbnail)}" alt="" loading="lazy">
+                <div class="item-content">
+                    <span class="title">${this.highlight(item.title, query)}</span>
+                    <div class="meta">${meta}</div>
+                </div>
+            </a>
+        `;
     }
 
     handleKeyNav(e) {
