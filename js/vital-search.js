@@ -211,11 +211,13 @@ class VitalSearchPopup extends HTMLElement {
 
                     #close {
                         display: flex;
-                        position: static;
+                        position: absolute;
+                        top: 1rem;
+                        right: 1rem;
                         width: 44px;
                         height: 44px;
-                        margin-bottom: 0.75rem;
-                        align-self: flex-end;
+                        background: rgba(255, 255, 255, 0.9);
+                        z-index: 1;
                     }
 
                     #close svg {
@@ -227,6 +229,16 @@ class VitalSearchPopup extends HTMLElement {
                         flex: 1;
                         max-height: none;
                         overflow-y: auto;
+                        order: 2;
+                    }
+
+                    #search {
+                        order: 3;
+                        margin-top: 0.75rem;
+                    }
+
+                    #loading {
+                        order: 2;
                     }
                 }
             </style>
