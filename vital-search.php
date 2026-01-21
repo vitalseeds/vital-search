@@ -101,11 +101,12 @@ function vital_search_get_thumbnail_url($thumbnail_id) {
 /**
  * Export products and categories to JSON file
  *
- * @return int Version timestamp
+ * @param bool $return_details Whether to return detailed result array
+ * @return int|array Version timestamp, or array with details if $return_details is true
  */
-function vital_search_export_json() {
+function vital_search_export_json($return_details = false) {
     $upload_dir = wp_upload_dir();
-    $base_path = $upload_dir['basedir'];
+    $json_path = $upload_dir['basedir'] . '/search-index.json';
 
     $version = time();
 
@@ -121,9 +122,30 @@ function vital_search_export_json() {
     ];
 
     $json = json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-    file_put_contents($base_path . '/search-index.json', $json);
+    $bytes_written = file_put_contents($json_path, $json);
+
+    if ($bytes_written === false) {
+        if ($return_details) {
+            return [
+                'success' => false,
+                'error' => 'Failed to write JSON file. Check directory permissions.',
+                'path' => $json_path,
+            ];
+        }
+        return 0;
+    }
 
     update_option('vital_search_version', $version);
+
+    if ($return_details) {
+        return [
+            'success' => true,
+            'version' => $version,
+            'product_count' => count($products),
+            'category_count' => count($categories),
+            'file_size' => $bytes_written,
+        ];
+    }
 
     return $version;
 }
@@ -141,6 +163,7 @@ function vital_search_get_products() {
     $args = [
         'post_type' => 'product',
         'post_status' => 'publish',
+        'has_password' => false,
         'posts_per_page' => -1,
         'fields' => 'ids',
     ];
@@ -384,7 +407,6 @@ function vital_search_shortcode($atts) {
     return vital_search_render_trigger($atts);
 }
 add_shortcode('vital_search', 'vital_search_shortcode');
-add_shortcode('vs_product_search', 'vital_search_shortcode'); // Backward compatibility
 
 /**
  * Add search link as last item in primary navigation menu
@@ -498,9 +520,19 @@ function vital_search_admin_page() {
     }
 
     if (isset($_POST['vital_search_regenerate']) && check_admin_referer('vital_search_regenerate_index')) {
-        $version = vital_search_export_json();
-        echo '<div class="notice notice-success"><p>Search index regenerated! Version: ' . esc_html($version) . '</p></div>';
-        $json_exists = true;
+        $result = vital_search_export_json(true);
+        if ($result['success']) {
+            $version = $result['version'];
+            $json_exists = true;
+            printf(
+                '<div class="notice notice-success"><p>Search index regenerated! %d products, %d categories. File size: %s</p></div>',
+                $result['product_count'],
+                $result['category_count'],
+                size_format($result['file_size'])
+            );
+        } else {
+            echo '<div class="notice notice-error"><p>Error: ' . esc_html($result['error']) . '</p><p>Path: <code>' . esc_html($result['path']) . '</code></p></div>';
+        }
     }
 
     $heading_categories = get_option('vital_search_heading_categories', []);
@@ -587,7 +619,6 @@ function vital_search_admin_page() {
         <h2>Shortcode Usage</h2>
         <p><code>[vital_search]</code> - Adds a search button</p>
         <p>Optional attributes: <code>button_text="Search"</code>, <code>placeholder="Search"</code></p>
-        <p><em>Note: The old <code>[vs_product_search]</code> shortcode still works for backward compatibility.</em></p>
     </div>
     <?php
 }
