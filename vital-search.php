@@ -136,23 +136,7 @@ add_action(VITAL_SEARCH_CRON_HOOK, 'vital_search_export_json');
  */
 function vital_search_get_products() {
     $products = [];
-
-    // Get selected heading categories
-    $heading_category_ids = get_option('vital_search_heading_categories', []);
-    $heading_categories = [];
-    if (!empty($heading_category_ids)) {
-        foreach ($heading_category_ids as $cat_id) {
-            $term = get_term($cat_id, 'product_cat');
-            if ($term && !is_wp_error($term)) {
-                // Calculate depth (number of ancestors) - lower = higher in hierarchy
-                $ancestors = get_ancestors($cat_id, 'product_cat', 'taxonomy');
-                $heading_categories[$cat_id] = [
-                    'term' => $term,
-                    'depth' => count($ancestors),
-                ];
-            }
-        }
-    }
+    $heading_categories = vital_search_load_heading_categories();
 
     $args = [
         'post_type' => 'product',
@@ -213,47 +197,99 @@ function vital_search_get_products() {
  */
 function vital_search_get_heading_category($product_terms, $heading_categories) {
     if (empty($heading_categories)) {
-        // Fallback: find top-level category
-        foreach ($product_terms as $term) {
-            if ($term->parent == 0) {
-                return $term->name;
-            }
-        }
-        // Traverse up to find top-level
-        $first_term = reset($product_terms);
-        $ancestors = get_ancestors($first_term->term_id, 'product_cat', 'taxonomy');
-        if (!empty($ancestors)) {
-            $top_term = get_term(end($ancestors), 'product_cat');
-            if ($top_term && !is_wp_error($top_term)) {
-                return $top_term->name;
-            }
-        }
-        return $first_term->name;
+        return vital_search_get_top_level_category($product_terms);
     }
 
     // Build a list of all category IDs the product belongs to (including ancestors)
-    $product_category_ids = [];
-    foreach ($product_terms as $term) {
-        $product_category_ids[] = $term->term_id;
-        $ancestors = get_ancestors($term->term_id, 'product_cat', 'taxonomy');
-        $product_category_ids = array_merge($product_category_ids, $ancestors);
-    }
-    $product_category_ids = array_unique($product_category_ids);
+    $product_category_ids = vital_search_collect_category_ids_with_ancestors($product_terms);
 
     // Find matching heading categories and pick the one with lowest depth (highest in hierarchy)
     $best_match = null;
     $best_depth = PHP_INT_MAX;
 
     foreach ($heading_categories as $cat_id => $cat_info) {
-        if (in_array($cat_id, $product_category_ids)) {
-            if ($cat_info['depth'] < $best_depth) {
-                $best_depth = $cat_info['depth'];
-                $best_match = $cat_info['term']->name;
-            }
+        if (in_array($cat_id, $product_category_ids) && $cat_info['depth'] < $best_depth) {
+            $best_depth = $cat_info['depth'];
+            $best_match = $cat_info['term']->name;
         }
     }
 
     return $best_match;
+}
+
+/**
+ * Get the top-level category name for a product
+ *
+ * @param array $product_terms Product's category terms
+ * @return string Category name
+ */
+function vital_search_get_top_level_category($product_terms) {
+    // Check for direct top-level category
+    foreach ($product_terms as $term) {
+        if ($term->parent == 0) {
+            return $term->name;
+        }
+    }
+
+    // Traverse up to find top-level ancestor
+    $first_term = reset($product_terms);
+    $ancestors = get_ancestors($first_term->term_id, 'product_cat', 'taxonomy');
+
+    if (!empty($ancestors)) {
+        $top_term = get_term(end($ancestors), 'product_cat');
+        if ($top_term && !is_wp_error($top_term)) {
+            return $top_term->name;
+        }
+    }
+
+    return $first_term->name;
+}
+
+/**
+ * Collect all category IDs for terms including their ancestors
+ *
+ * @param array $terms Category terms
+ * @return array Unique category IDs
+ */
+function vital_search_collect_category_ids_with_ancestors($terms) {
+    $category_ids = [];
+
+    foreach ($terms as $term) {
+        $category_ids[] = $term->term_id;
+        $ancestors = get_ancestors($term->term_id, 'product_cat', 'taxonomy');
+        $category_ids = array_merge($category_ids, $ancestors);
+    }
+
+    return array_unique($category_ids);
+}
+
+/**
+ * Load heading categories with depth information from settings
+ *
+ * @return array Heading categories keyed by term ID with 'term' and 'depth' values
+ */
+function vital_search_load_heading_categories() {
+    $heading_category_ids = get_option('vital_search_heading_categories', []);
+
+    if (empty($heading_category_ids)) {
+        return [];
+    }
+
+    $heading_categories = [];
+    foreach ($heading_category_ids as $cat_id) {
+        $term = get_term($cat_id, 'product_cat');
+        if (!$term || is_wp_error($term)) {
+            continue;
+        }
+
+        $ancestors = get_ancestors($cat_id, 'product_cat', 'taxonomy');
+        $heading_categories[$cat_id] = [
+            'term' => $term,
+            'depth' => count($ancestors),
+        ];
+    }
+
+    return $heading_categories;
 }
 
 /**

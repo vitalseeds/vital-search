@@ -456,14 +456,11 @@ class VitalSearchPopup extends HTMLElement {
         const products = results.filter(item => item.type !== 'category');
 
         // Group products by their top-level category
-        const productsByTopCat = {};
-        products.forEach(item => {
+        const productsByTopCat = products.reduce((groups, item) => {
             const topCat = item.top_category || 'Products';
-            if (!productsByTopCat[topCat]) {
-                productsByTopCat[topCat] = [];
-            }
-            productsByTopCat[topCat].push(item);
-        });
+            (groups[topCat] = groups[topCat] || []).push(item);
+            return groups;
+        }, {});
 
         let html = '';
         let resultIndex = 0;
