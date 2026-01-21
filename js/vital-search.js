@@ -58,6 +58,7 @@ class VitalSearchPopup extends HTMLElement {
                 }
 
                 #close {
+                    display: none;
                     position: absolute;
                     top: 0.75rem;
                     right: 0.75rem;
@@ -68,7 +69,6 @@ class VitalSearchPopup extends HTMLElement {
                     color: #666;
                     width: 32px;
                     height: 32px;
-                    display: flex;
                     align-items: center;
                     justify-content: center;
                     border-radius: 4px;
@@ -202,13 +202,22 @@ class VitalSearchPopup extends HTMLElement {
                         padding: 1rem;
                     }
 
+                    #close {
+                        display: flex;
+                    }
+
                     #results {
                         max-height: 60vh;
                     }
                 }
             </style>
             <div id="container">
-                <button id="close" class="sr-only" aria-label="Close search">Close search</button>
+                <button id="close" aria-label="Close search">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
                 <input id="search" type="search" placeholder="${this.escapeHtml(this.placeholder)}" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list">
                 <div id="results" role="listbox" aria-label="Search results"></div>
                 <div id="status" role="status" aria-live="polite" class="sr-only"></div>
