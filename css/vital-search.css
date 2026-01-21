@@ -1,0 +1,108 @@
+/**
+ * Vital Search Styles
+ *
+ * Styles for the search trigger button.
+ * Modal styles are encapsulated in the Shadow DOM.
+ */
+
+/* Base search button */
+.vital-search-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: inherit;
+    border-radius: 4px;
+    transition: background-color 0.2s, color 0.2s;
+}
+
+.vital-search-button:hover {
+    background: rgba(0, 0, 0, 0.05);
+}
+
+.vital-search-button:focus {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+}
+
+.vital-search-button svg {
+    display: block;
+}
+
+/* Header search wrapper */
+.vital-header-search {
+    display: flex;
+    align-items: center;
+}
+
+/* Header-specific button styling */
+.vital-search-button--header {
+    padding: 0.625rem;
+}
+
+/* Position in Storefront header */
+.site-header .vital-header-search {
+    margin-left: 1rem;
+}
+
+/* Menu item styling */
+.vital-search-menu-item {
+    vertical-align: middle;
+}
+
+/* Responsive adjustments */
+@media (max-width: 767px) {
+    .site-header .vital-header-search {
+        margin-left: 0.5rem;
+    }
+
+    .vital-search-button--header {
+        padding: 0.5rem;
+    }
+
+    .vital-search-button--header svg {
+        width: 18px;
+        height: 18px;
+    }
+}
+
+/* Fallback search form on /search page */
+.vital-search-form {
+    display: flex;
+    gap: 0.5rem;
+    max-width: 500px;
+}
+
+.vital-search-input {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    border: 2px solid #e5e7eb;
+    border-radius: 6px;
+}
+
+.vital-search-input:focus {
+    border-color: #2c6e49;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(44, 110, 73, 0.1);
+}
+
+.vital-search-submit {
+    padding: 0.75rem 1.5rem;
+    white-space: nowrap;
+}
+
+.vital-search-form-wrapper {
+    margin-bottom: 2rem;
+}
+
+.vital-search-results {
+    margin-top: 1rem;
+}
+
+.vital-search-results .woocommerce-result-count {
+    margin-bottom: 1rem;
+}
