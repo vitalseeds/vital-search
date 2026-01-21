@@ -537,6 +537,17 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // Replace Storefront handheld footer bar search with vital-search
+    const handheldSearchLink = document.querySelector('.storefront-handheld-footer-bar li.search > a');
+    if (handheldSearchLink) {
+        // Capture click before Storefront's handler (use capture phase)
+        handheldSearchLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            popup.show();
+        }, true);
+    }
+
     // Hide the old mega menu search button (replaced by custom search)
     const oldSearchLink = document.querySelector('.mega-menu-link.dashicons-search');
     if (oldSearchLink && oldSearchLink.closest('.mega-menu-item')) {

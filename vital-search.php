@@ -294,6 +294,19 @@ function vital_search_add_to_nav_menu($items, $args) {
 add_filter('wp_nav_menu_items', 'vital_search_add_to_nav_menu', 10, 2);
 
 /**
+ * Enqueue assets for Storefront handheld footer bar search integration
+ *
+ * The Storefront theme includes a handheld footer bar on mobile with a search link.
+ * We enqueue our assets to replace that search with vital-search.
+ */
+function vital_search_storefront_handheld_footer() {
+    if (!is_admin() && function_exists('storefront_handheld_footer_bar')) {
+        vital_search_enqueue_assets();
+    }
+}
+add_action('wp_enqueue_scripts', 'vital_search_storefront_handheld_footer');
+
+/**
  * Enqueue search assets (called when shortcode or header search is used)
  */
 function vital_search_enqueue_assets() {
