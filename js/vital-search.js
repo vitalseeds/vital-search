@@ -528,10 +528,10 @@ class VitalSearchPopup extends HTMLElement {
             this.updateSelection(results);
         } else if (e.key === 'Enter') {
             e.preventDefault();
-            // If a result is selected, click it; otherwise if only one result, go to it
+            // If a result is selected, click it; otherwise go to the first result
             if (this.selectedIndex >= 0 && results[this.selectedIndex]) {
                 results[this.selectedIndex].click();
-            } else if (results.length === 1) {
+            } else if (results.length > 0) {
                 results[0].click();
             }
         }
