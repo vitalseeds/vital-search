@@ -453,7 +453,8 @@ class VitalSearchPopup extends HTMLElement {
 
         // Group results by type: categories first, then products grouped by top category
         const results = ids.map(id => this.items.find(x => x.id === id)).filter(Boolean);
-        const categories = results.filter(item => item.type === 'category');
+        const categories = results.filter(item => item.type === 'category')
+            .sort((a, b) => a.title.localeCompare(b.title));
         const products = results.filter(item => item.type !== 'category');
 
         // Group products by their top-level category
