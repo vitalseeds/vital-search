@@ -670,3 +670,42 @@ add_action('admin_post_vital_search_export', function() {
     ], admin_url()));
     exit;
 });
+
+/**
+ * Register WP-CLI command to rebuild search index
+ */
+if (defined('WP_CLI') && WP_CLI) {
+    WP_CLI::add_command('vital-search', 'Vital_Search_CLI');
+}
+
+/**
+ * WP-CLI commands for Vital Search
+ */
+class Vital_Search_CLI {
+
+    /**
+     * Rebuild the search index
+     *
+     * ## EXAMPLES
+     *
+     *     wp vital-search rebuild
+     *
+     * @when after_wp_load
+     */
+    public function rebuild($args, $assoc_args) {
+        WP_CLI::log('Rebuilding search index...');
+
+        $result = vital_search_export_json(true);
+
+        if ($result['success']) {
+            WP_CLI::success(sprintf(
+                'Search index rebuilt: %d products, %d categories. File size: %s',
+                $result['product_count'],
+                $result['category_count'],
+                size_format($result['file_size'])
+            ));
+        } else {
+            WP_CLI::error($result['error']);
+        }
+    }
+}
