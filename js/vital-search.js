@@ -201,7 +201,7 @@ class VitalSearchPopup extends HTMLElement {
                     #container {
                         width: 100%;
                         max-width: none;
-                        height: 100%;
+                        height: 100vh;
                         border-radius: 0;
                         padding: 1rem;
                         display: flex;
@@ -216,7 +216,7 @@ class VitalSearchPopup extends HTMLElement {
                         right: 1rem;
                         width: 44px;
                         height: 44px;
-                        background: rgba(255, 255, 255, 0.9);
+                        // background: rgba(255, 255, 255, 0.9);
                         z-index: 1;
                     }
 
@@ -233,8 +233,8 @@ class VitalSearchPopup extends HTMLElement {
                     }
 
                     #search {
-                        order: 3;
-                        margin-top: 0.75rem;
+                        order: 1;
+                        margin-bottom: 0.75rem;
                     }
 
                     #loading {
@@ -274,7 +274,8 @@ class VitalSearchPopup extends HTMLElement {
         });
 
         this.addEventListener('click', (e) => {
-            if (e.target === this) this.hide();
+            // Use composedPath to get actual clicked element (not retargeted by Shadow DOM)
+            if (e.composedPath()[0] === this) this.hide();
         });
 
         document.addEventListener('keydown', (e) => {

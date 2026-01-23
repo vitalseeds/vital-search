@@ -474,9 +474,8 @@ function vital_search_enqueue_assets() {
         true
     );
 
-    $upload_dir = wp_upload_dir();
     wp_localize_script('vital-search', 'vitalSearch', [
-        'jsonUrl' => $upload_dir['baseurl'] . '/search-index.json',
+        'jsonUrl' => '/wp-content/uploads/search-index.json',
         'version' => get_option('vital_search_version', 0),
     ]);
 
