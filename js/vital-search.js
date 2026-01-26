@@ -42,7 +42,7 @@ class VitalSearchPopup extends HTMLElement {
                     background: rgba(0, 0, 0, 0.7);
                     justify-content: center;
                     align-items: flex-start;
-                    padding-top: 80px;
+                    padding-top: 10vh;
                     z-index: 99999;
                     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
                 }
@@ -95,7 +95,7 @@ class VitalSearchPopup extends HTMLElement {
                 }
 
                 #results {
-                    max-height: 400px;
+                    max-height: 70vh;
                     overflow-y: auto;
                     margin-top: 0.5rem;
                 }
