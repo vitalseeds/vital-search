@@ -388,11 +388,13 @@ class VitalSearchPopup extends HTMLElement {
 
             console.log('[Vital Search] Building search index with', this.items.length, 'items');
             this.items.forEach(item => {
+                // Don't index category names for products (type === 'product' or undefined)
+                const isProduct = !item.type || item.type === 'product';
                 const searchText = [
                     item.title,
                     item.latin_name,
                     item.sku,
-                    ...(item.category || [])
+                    ...(isProduct ? [] : (item.category || []))
                 ].filter(Boolean).join(' ');
                 this.flexIndex.add(item.id, searchText);
             });
