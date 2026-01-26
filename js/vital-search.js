@@ -504,9 +504,13 @@ class VitalSearchPopup extends HTMLElement {
             meta = `<em>${this.escapeHtml(item.latin_name)}</em>`;
         }
 
+        const thumbnailHtml = item.thumbnail
+            ? `<img src="${this.escapeHtml(item.thumbnail)}" alt="" loading="lazy">`
+            : '';
+
         return `
             <a href="${this.escapeHtml(item.url)}" class="search-item" role="option" id="result-${index}" aria-selected="false">
-                <img src="${this.escapeHtml(item.thumbnail)}" alt="" loading="lazy">
+                ${thumbnailHtml}
                 <div class="item-content">
                     <span class="title">${this.highlight(item.title, query)}</span>
                     <div class="meta">${meta}</div>
