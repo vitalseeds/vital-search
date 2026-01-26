@@ -22,7 +22,7 @@ define('VITAL_SEARCH_VERSION', '1.0.0');
 define('VITAL_SEARCH_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('VITAL_SEARCH_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('VITAL_SEARCH_CRON_HOOK', 'vital_search_export');
-
+define('VITAL_SEEDS_CATEGORY_SLUG', 'seeds');
 /**
  * Schedule the daily cron job if not already scheduled
  */
@@ -233,7 +233,9 @@ function vital_search_get_heading_category($product_terms, $heading_categories) 
     foreach ($heading_categories as $cat_id => $cat_info) {
         if (in_array($cat_id, $product_category_ids) && $cat_info['depth'] < $best_depth) {
             $best_depth = $cat_info['depth'];
-            $best_match = $cat_info['term']->name;
+            // Use the category name as the results section heading, but
+            // substitute 'Varieties' for category name 'Seeds'
+            $best_match = ($cat_info['term']->slug === VITAL_SEEDS_CATEGORY_SLUG) ? 'Varieties' : $cat_info['term']->name;
         }
     }
 
@@ -323,7 +325,7 @@ function vital_search_load_heading_categories() {
 function vital_search_get_categories() {
     $categories = [];
 
-    $seeds_parent = get_term_by('slug', 'seeds', 'product_cat');
+    $seeds_parent = get_term_by('slug', VITAL_SEEDS_CATEGORY_SLUG, 'product_cat');
     if (!$seeds_parent) {
         return $categories;
     }
