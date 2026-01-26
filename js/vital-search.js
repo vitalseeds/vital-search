@@ -451,11 +451,17 @@ class VitalSearchPopup extends HTMLElement {
         searchInput.setAttribute('aria-expanded', 'true');
         statusEl.textContent = `${ids.length} result${ids.length === 1 ? '' : 's'} found`;
 
-        // Group results by type: categories first, then products grouped by top category
+        // Group results by type:
+        // categories first,
+        // then products grouped by top category
+        // then tags
+        // then growing guides
         const results = ids.map(id => this.items.find(x => x.id === id)).filter(Boolean);
         const categories = results.filter(item => item.type === 'category')
             .sort((a, b) => a.title.localeCompare(b.title));
-        const products = results.filter(item => item.type !== 'category');
+        const growingGuides = results.filter(item => item.type === 'growing-guide')
+            .sort((a, b) => a.title.localeCompare(b.title));
+        const products = results.filter(item => item.type !== 'category' && item.type !== 'growing-guide');
 
         // Group products by their top-level category
         const productsByTopCat = products.reduce((groups, item) => {
@@ -477,6 +483,11 @@ class VitalSearchPopup extends HTMLElement {
             html += `<div class="section-heading">${this.escapeHtml(topCat)}</div>`;
             html += productsByTopCat[topCat].map(item => this.renderResultItem(item, resultIndex++, query)).join('');
         });
+
+        if (growingGuides.length > 0) {
+            html += '<div class="section-heading">Growing Guides</div>';
+            html += growingGuides.map(item => this.renderResultItem(item, resultIndex++, query)).join('');
+        }
 
         resultsEl.innerHTML = html;
     }

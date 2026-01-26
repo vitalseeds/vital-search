@@ -113,8 +113,9 @@ function vital_search_export_json($return_details = false) {
     $products = vital_search_get_products();
     $categories = vital_search_get_categories();
     $tags = vital_search_get_tags();
+    $growing_guides = vital_search_get_growing_guides();
 
-    $items = array_merge($products, $categories, $tags);
+    $items = array_merge($products, $categories, $tags, $growing_guides);
 
     $data = [
         'version' => $version,
@@ -145,6 +146,7 @@ function vital_search_export_json($return_details = false) {
             'product_count' => count($products),
             'category_count' => count($categories),
             'tag_count' => count($tags),
+            'growing_guide_count' => count($growing_guides),
             'file_size' => $bytes_written,
         ];
     }
@@ -388,6 +390,40 @@ function vital_search_get_tags() {
     }
 
     return $tags;
+}
+
+/**
+ * Get growing guides formatted for search
+ *
+ * @return array
+ */
+function vital_search_get_growing_guides() {
+    $guides = [];
+
+    $args = [
+        'post_type' => 'growing-guide',
+        'post_status' => 'publish',
+        'has_password' => false,
+        'posts_per_page' => -1,
+        'fields' => 'ids',
+    ];
+
+    $guide_ids = get_posts($args);
+
+    foreach ($guide_ids as $guide_id) {
+        $thumbnail_id = get_post_thumbnail_id($guide_id);
+        $thumbnail_url = vital_search_get_thumbnail_url($thumbnail_id);
+
+        $guides[] = [
+            'id' => 'guide-' . $guide_id,
+            'type' => 'growing-guide',
+            'title' => get_the_title($guide_id),
+            'url' => get_permalink($guide_id),
+            'thumbnail' => $thumbnail_url,
+        ];
+    }
+
+    return $guides;
 }
 
 /**
