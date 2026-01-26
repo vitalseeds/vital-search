@@ -99,7 +99,7 @@ function vital_search_get_thumbnail_url($thumbnail_id) {
 }
 
 /**
- * Export products and categories to JSON file
+ * Export products, categories and tags to JSON file
  *
  * @param bool $return_details Whether to return detailed result array
  * @return int|array Version timestamp, or array with details if $return_details is true
@@ -112,8 +112,9 @@ function vital_search_export_json($return_details = false) {
 
     $products = vital_search_get_products();
     $categories = vital_search_get_categories();
+    $tags = vital_search_get_tags();
 
-    $items = array_merge($products, $categories);
+    $items = array_merge($products, $categories, $tags);
 
     $data = [
         'version' => $version,
@@ -143,6 +144,7 @@ function vital_search_export_json($return_details = false) {
             'version' => $version,
             'product_count' => count($products),
             'category_count' => count($categories),
+            'tag_count' => count($tags),
             'file_size' => $bytes_written,
         ];
     }
@@ -358,6 +360,37 @@ function vital_search_get_categories() {
 }
 
 /**
+ * Get product tags formatted for search
+ *
+ * @return array
+ */
+function vital_search_get_tags() {
+    $tags = [];
+
+    $terms = get_terms([
+        'taxonomy' => 'product_tag',
+        'hide_empty' => true,
+    ]);
+
+    if (is_wp_error($terms)) {
+        return $tags;
+    }
+
+    foreach ($terms as $term) {
+        $tags[] = [
+            'id' => 'tag-' . $term->term_id,
+            'type' => 'tag',
+            'title' => $term->name,
+            'url' => get_term_link($term),
+            'top_category' => 'Tags',
+            'count' => $term->count,
+        ];
+    }
+
+    return $tags;
+}
+
+/**
  * Render a search trigger button/link
  *
  * @param array $args {
@@ -526,9 +559,10 @@ function vital_search_admin_page() {
             $version = $result['version'];
             $json_exists = true;
             printf(
-                '<div class="notice notice-success"><p>Search index regenerated! %d products, %d categories. File size: %s</p></div>',
+                '<div class="notice notice-success"><p>Search index regenerated! %d products, %d categories, %d tags. File size: %s</p></div>',
                 $result['product_count'],
                 $result['category_count'],
+                $result['tag_count'],
                 size_format($result['file_size'])
             );
         } else {
@@ -701,9 +735,10 @@ class Vital_Search_CLI {
 
         if ($result['success']) {
             WP_CLI::success(sprintf(
-                'Search index rebuilt: %d products, %d categories. File size: %s',
+                'Search index rebuilt: %d products, %d categories, %d tags. File size: %s',
                 $result['product_count'],
                 $result['category_count'],
+                $result['tag_count'],
                 size_format($result['file_size'])
             ));
         } else {
