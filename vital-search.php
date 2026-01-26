@@ -412,15 +412,19 @@ function vital_search_get_growing_guides() {
 
     foreach ($guide_ids as $guide_id) {
         $thumbnail_id = get_post_thumbnail_id($guide_id);
-        $thumbnail_url = vital_search_get_thumbnail_url($thumbnail_id);
 
-        $guides[] = [
+        $guide = [
             'id' => 'guide-' . $guide_id,
             'type' => 'growing-guide',
             'title' => get_the_title($guide_id),
             'url' => get_permalink($guide_id),
-            'thumbnail' => $thumbnail_url,
         ];
+
+        if ($thumbnail_id) {
+            $guide['thumbnail'] = wp_get_attachment_image_url($thumbnail_id, 'woocommerce_thumbnail');
+        }
+
+        $guides[] = $guide;
     }
 
     return $guides;
