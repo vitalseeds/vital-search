@@ -212,10 +212,10 @@ class VitalSearchPopup extends HTMLElement {
                     #close {
                         display: flex;
                         position: absolute;
-                        top: 1rem;
-                        right: 1rem;
-                        width: 44px;
-                        height: 44px;
+                        top: 6px;
+                        right: 0;
+                        width: 60px;
+                        height: 60px;
                         // background: rgba(255, 255, 255, 0.9);
                         z-index: 1;
                     }
@@ -235,6 +235,7 @@ class VitalSearchPopup extends HTMLElement {
                     #search {
                         order: 1;
                         margin-bottom: 0.75rem;
+                        width: calc(100% - 42px);
                     }
 
                     #loading {
