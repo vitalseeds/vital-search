@@ -58,6 +58,7 @@ add_action('init', 'vital_search_schedule_cron');
  * Register /search rewrite rule
  */
 function vital_search_rewrite_rule() {
+    add_rewrite_rule('^search/sku/([^/]+)/?$', 'index.php?vital_search_sku=$matches[1]', 'top');
     add_rewrite_rule('^search/?$', 'index.php?vital_search_page=1', 'top');
 }
 add_action('init', 'vital_search_rewrite_rule');
@@ -67,9 +68,38 @@ add_action('init', 'vital_search_rewrite_rule');
  */
 function vital_search_query_vars($vars) {
     $vars[] = 'vital_search_page';
+    $vars[] = 'vital_search_sku';
     return $vars;
 }
 add_filter('query_vars', 'vital_search_query_vars');
+
+/**
+ * Handle /search/sku/{sku}/ requests
+ *
+ * Redirects to the matching product if found, otherwise falls back
+ * to the /search page with the SKU as the search term.
+ */
+function vital_search_sku_redirect() {
+    $sku = get_query_var('vital_search_sku');
+    if (!$sku) {
+        return;
+    }
+
+    $sku = sanitize_text_field(wp_unslash($sku));
+    $product_id = wc_get_product_id_by_sku($sku);
+    $product = $product_id ? wc_get_product($product_id) : false;
+
+    if ($product) {
+        // Variations don't have their own front-end permalink, so link to the parent product
+        $redirect_id = $product->is_type('variation') ? $product->get_parent_id() : $product_id;
+        wp_safe_redirect(get_permalink($redirect_id));
+        exit;
+    }
+
+    wp_safe_redirect(add_query_arg('s', rawurlencode($sku), home_url('/search')));
+    exit;
+}
+add_action('template_redirect', 'vital_search_sku_redirect');
 
 /**
  * Load search page template for /search URL
