@@ -74,6 +74,33 @@ function vital_search_query_vars($vars) {
 add_filter('query_vars', 'vital_search_query_vars');
 
 /**
+ * Find a product ID by SKU, case-insensitively
+ *
+ * wc_get_product_id_by_sku() does an exact match, whose case-sensitivity
+ * depends on the database column collation. Match on LOWER() explicitly
+ * so SKU lookups behave the same regardless of collation.
+ *
+ * @param string $sku SKU to look up
+ * @return int Product (or variation) ID, or 0 if not found
+ */
+function vital_search_get_product_id_by_sku_ci($sku) {
+    global $wpdb;
+
+    $product_id = $wpdb->get_var($wpdb->prepare(
+        "SELECT posts.ID
+        FROM {$wpdb->posts} AS posts
+        INNER JOIN {$wpdb->wc_product_meta_lookup} AS lookup ON posts.ID = lookup.product_id
+        WHERE posts.post_type IN ('product', 'product_variation')
+        AND posts.post_status != 'trash'
+        AND LOWER(lookup.sku) = LOWER(%s)
+        LIMIT 1",
+        $sku
+    ));
+
+    return $product_id ? (int) $product_id : 0;
+}
+
+/**
  * Handle /search/sku/{sku}/ requests
  *
  * Redirects to the matching product if found, otherwise falls back
@@ -86,7 +113,7 @@ function vital_search_sku_redirect() {
     }
 
     $sku = sanitize_text_field(wp_unslash($sku));
-    $product_id = wc_get_product_id_by_sku($sku);
+    $product_id = vital_search_get_product_id_by_sku_ci($sku);
     $product = $product_id ? wc_get_product($product_id) : false;
 
     if ($product) {
