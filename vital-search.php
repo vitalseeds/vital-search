@@ -58,7 +58,7 @@ add_action('init', 'vital_search_schedule_cron');
  * Register /search rewrite rule
  */
 function vital_search_rewrite_rule() {
-    add_rewrite_rule('^search/sku/([^/]+)/?$', 'index.php?vital_search_sku=$matches[1]', 'top');
+    add_rewrite_rule('^packet/find/([^/]+)/?$', 'index.php?vital_search_sku=$matches[1]', 'top');
     add_rewrite_rule('^search/?$', 'index.php?vital_search_page=1', 'top');
 }
 add_action('init', 'vital_search_rewrite_rule');
@@ -101,7 +101,7 @@ function vital_search_get_product_id_by_sku_ci($sku) {
 }
 
 /**
- * Handle /search/sku/{sku}/ requests
+ * Handle /packet/find/{sku}/ requests
  *
  * Redirects to the matching product if found, otherwise falls back
  * to the /search page with the SKU as the search term.
