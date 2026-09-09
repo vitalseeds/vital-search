@@ -1,0 +1,15 @@
+# macOS
+.DS_Store
+
+# Editors
+.idea/
+.vscode/
+*.sublime-workspace
+
+# Logs / temp
+*.log
+*.swp
+*~
+
+# Note: vendor/ is intentionally tracked. FlexSearch and idb are committed
+# so the plugin serves them from its own origin rather than a public CDN.
