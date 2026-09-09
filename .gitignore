@@ -11,5 +11,9 @@
 *.swp
 *~
 
+# Test dependencies (jsdom). Not needed to run the plugin.
+node_modules/
+package-lock.json
+
 # Note: vendor/ is intentionally tracked. FlexSearch and idb are committed
 # so the plugin serves them from its own origin rather than a public CDN.

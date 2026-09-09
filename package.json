@@ -1,0 +1,12 @@
+{
+  "name": "vital-search",
+  "version": "1.0.0",
+  "description": "Development dependencies for the vital-search test suites. Not required to run the plugin.",
+  "private": true,
+  "scripts": {
+    "test": "./tests/run.sh"
+  },
+  "devDependencies": {
+    "jsdom": "^24.0.0"
+  }
+}

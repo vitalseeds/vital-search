@@ -1,0 +1,84 @@
+{
+  "version": 1700000000,
+  "generated": "2023-11-14T22:13:20+00:00",
+  "items": [
+    {
+      "id": "product-101",
+      "type": "product",
+      "title": "Gardener's Delight Tomato",
+      "latin_name": "Solanum lycopersicum",
+      "url": "https://example.test/product/gardeners-delight-tomato/",
+      "thumbnail": "https://example.test/img/tomato-1.jpg",
+      "category": ["Tomato Seed", "Vegetable Seed"],
+      "top_category": "Varieties",
+      "sku": "TOM-001"
+    },
+    {
+      "id": "product-102",
+      "type": "product",
+      "title": "Black Krim Tomato",
+      "latin_name": "Solanum lycopersicum",
+      "url": "https://example.test/product/black-krim-tomato/",
+      "thumbnail": "https://example.test/img/tomato-2.jpg",
+      "category": ["Tomato Seed", "Vegetable Seed"],
+      "top_category": "Varieties",
+      "sku": "TOM-002"
+    },
+    {
+      "id": "product-103",
+      "type": "product",
+      "title": "Sweet Genovese Basil",
+      "latin_name": "Ocimum basilicum",
+      "url": "https://example.test/product/sweet-genovese-basil/",
+      "thumbnail": "https://example.test/img/basil.jpg",
+      "category": ["Herb Seed"],
+      "top_category": "Varieties",
+      "sku": "BAS-001"
+    },
+    {
+      "id": "product-104",
+      "type": "product",
+      "title": "Cavolo Nero Kale",
+      "latin_name": "Brassica oleracea",
+      "url": "https://example.test/product/cavolo-nero-kale/",
+      "thumbnail": "https://example.test/img/kale.jpg",
+      "category": ["Brassica Seed", "Vegetable Seed"],
+      "top_category": "Varieties",
+      "sku": "KAL-001"
+    },
+    {
+      "id": "product-105",
+      "type": "product",
+      "title": "Calendula Officinalis",
+      "latin_name": "Calendula officinalis",
+      "url": "https://example.test/product/calendula/",
+      "thumbnail": "https://example.test/img/calendula.jpg",
+      "category": ["Flower Seed"],
+      "top_category": "Varieties",
+      "sku": "CAL-001"
+    },
+    {
+      "id": "category-201",
+      "type": "category",
+      "title": "Tomato Seed",
+      "url": "https://example.test/product-category/seeds/tomato-seed/",
+      "thumbnail": "https://example.test/img/cat-tomato.jpg",
+      "count": 24
+    },
+    {
+      "id": "tag-301",
+      "type": "tag",
+      "title": "Blight Resistant",
+      "url": "https://example.test/product-tag/blight-resistant/",
+      "top_category": "Tags",
+      "count": 7
+    },
+    {
+      "id": "guide-401",
+      "type": "growing-guide",
+      "title": "Growing Tomatoes Outdoors",
+      "url": "https://example.test/growing-guide/growing-tomatoes-outdoors/",
+      "thumbnail": "https://example.test/img/guide-tomato.jpg"
+    }
+  ]
+}
