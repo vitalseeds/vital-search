@@ -72,6 +72,13 @@ function runIntentChecks(trigger) {
         check('popup opens on click', popup().style.display === 'flex');
         check('click does not trigger a second fetch', fetchCount === 1);
 
+        // Opening the popup must not announce loading. Nothing has been typed,
+        // so there is nothing to wait for from the visitor's point of view.
+        check('no message shown when the popup opens',
+            popup().shadowRoot.getElementById('message').hidden === true);
+        check('no results shown when the popup opens',
+            popup().shadowRoot.getElementById('results').innerHTML.trim() === '');
+
         // Type while the index is still loading
         const input = popup().shadowRoot.getElementById('search');
         input.value = 'tomato';

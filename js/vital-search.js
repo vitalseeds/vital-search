@@ -216,7 +216,7 @@ class VitalSearchPopup extends HTMLElement {
                     color: #6b7280;
                 }
 
-                #loading {
+                #message {
                     padding: 2rem;
                     text-align: center;
                     color: #6b7280;
@@ -281,7 +281,7 @@ class VitalSearchPopup extends HTMLElement {
                         width: calc(100% - 42px);
                     }
 
-                    #loading {
+                    #message {
                         order: 2;
                     }
                 }
@@ -296,7 +296,7 @@ class VitalSearchPopup extends HTMLElement {
                 <input id="search" type="search" placeholder="${this.escapeHtml(this.placeholder)}" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="results" aria-autocomplete="list">
                 <div id="results" role="listbox" aria-label="Search results"></div>
                 <div id="status" role="status" aria-live="polite" class="sr-only"></div>
-                <div id="loading" hidden>Loading search index...</div>
+                <div id="message" hidden></div>
             </div>
         `;
     }
@@ -348,10 +348,6 @@ class VitalSearchPopup extends HTMLElement {
             return;
         }
 
-        const loadingEl = this.shadowRoot.getElementById('loading');
-        loadingEl.textContent = 'Loading search...';
-        loadingEl.hidden = false;
-
         const config = window.vitalSearch || {};
         const pending = [];
 
@@ -369,7 +365,7 @@ class VitalSearchPopup extends HTMLElement {
     async initDatabase() {
         const DB_NAME = 'vital-search';
         const DB_VERSION = 1;
-        const loadingEl = this.shadowRoot.getElementById('loading');
+        const messageEl = this.shadowRoot.getElementById('message');
 
         console.log('[Vital Search] Initializing database...');
 
@@ -377,8 +373,8 @@ class VitalSearchPopup extends HTMLElement {
             await this.loadLibraries();
         } catch (error) {
             console.error('[Vital Search] Failed to load libraries:', error);
-            loadingEl.textContent = 'Failed to load search. Please try again.';
-            loadingEl.hidden = false;
+            messageEl.textContent = 'Failed to load search. Please try again.';
+            messageEl.hidden = false;
             return;
         }
 
@@ -407,13 +403,13 @@ class VitalSearchPopup extends HTMLElement {
             await this.loadItems();
         } catch (error) {
             console.error('[Vital Search] Failed to initialize:', error);
-            loadingEl.textContent = 'Failed to initialize search. Check console for details.';
-            loadingEl.hidden = false;
+            messageEl.textContent = 'Failed to initialize search. Check console for details.';
+            messageEl.hidden = false;
         }
     }
 
     async loadItems() {
-        const loadingEl = this.shadowRoot.getElementById('loading');
+        const messageEl = this.shadowRoot.getElementById('message');
 
         console.log('[Vital Search] Loading items...');
         console.log('[Vital Search] vitalSearch config:', window.vitalSearch);
@@ -428,7 +424,6 @@ class VitalSearchPopup extends HTMLElement {
                 this.items = await this.db.getAll('items');
             } else {
                 console.log('[Vital Search] Fetching fresh data...');
-                loadingEl.hidden = false;
 
                 const jsonUrl = window.vitalSearch?.jsonUrl || '/wp-content/uploads/search-index.json';
                 console.log('[Vital Search] Fetching from:', jsonUrl);
@@ -459,7 +454,6 @@ class VitalSearchPopup extends HTMLElement {
                 await tx.done;
 
                 this.items = data.items;
-                loadingEl.hidden = true;
             }
 
             console.log('[Vital Search] Building search index with', this.items.length, 'items');
@@ -486,8 +480,8 @@ class VitalSearchPopup extends HTMLElement {
 
         } catch (error) {
             console.error('[Vital Search] Failed to load items:', error);
-            loadingEl.textContent = error.message || 'Failed to load search data.';
-            loadingEl.hidden = false;
+            messageEl.textContent = error.message || 'Failed to load search data.';
+            messageEl.hidden = false;
         }
     }
 
