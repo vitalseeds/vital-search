@@ -18,14 +18,19 @@ class VitalSearchPopup extends HTMLElement {
         this.debounceTimer = null;
         this.initialized = false;
         this.selectedIndex = -1;
+        // The FlexSearch index object exists before it is populated, so track
+        // readiness separately rather than testing for the index itself.
+        this.indexReady = false;
+        // Query typed before the index finished loading, re-run once it is ready
+        this.pendingQuery = null;
 
         this.render();
         this.setupEventListeners();
     }
 
     connectedCallback() {
-        // Initialize when element is added to DOM (libraries should be loaded by then)
-        console.log('[Vital Search] Component connected to DOM');
+        // The element is only created once the visitor shows search intent,
+        // so loading the index here keeps it off every page's load path.
         if (!this.initialized) {
             this.initialized = true;
             this.initDatabase();
@@ -399,6 +404,14 @@ class VitalSearchPopup extends HTMLElement {
                 this.flexIndex.add(item.id, searchText);
             });
             console.log('[Vital Search] Search index ready');
+            this.indexReady = true;
+
+            // Run any query typed while the index was still loading
+            const pending = this.pendingQuery;
+            this.pendingQuery = null;
+            if (pending) {
+                this.search(pending);
+            }
 
         } catch (error) {
             console.error('[Vital Search] Failed to load items:', error);
@@ -437,8 +450,10 @@ class VitalSearchPopup extends HTMLElement {
             return;
         }
 
-        if (!this.flexIndex) {
-            console.log('[Vital Search] Index not ready yet');
+        if (!this.indexReady) {
+            // Index still loading. Remember the query so it can be run
+            // as soon as the index is ready.
+            this.pendingQuery = query;
             resultsEl.innerHTML = '<div class="no-results">Search is loading...</div>';
             return;
         }
@@ -585,6 +600,11 @@ customElements.define('vital-search-popup', VitalSearchPopup);
  *
  * Without JS or custom element support, the links navigate to /search as a fallback.
  * With JS and custom element support, clicks are intercepted to show the search popup.
+ *
+ * The popup is only created when the visitor shows search intent (hover, focus,
+ * touch or click). Creating it is what triggers the index fetch, the IndexedDB
+ * writes and the FlexSearch build, so deferring it keeps that work off the load
+ * path of every page for the majority of visitors who never search.
  */
 document.addEventListener('DOMContentLoaded', () => {
     // Bail out if browser doesn't support custom elements - links will work as normal
@@ -593,29 +613,54 @@ document.addEventListener('DOMContentLoaded', () => {
     const triggers = document.querySelectorAll('[data-vital-search-trigger]');
     if (triggers.length === 0) return;
 
-    // Create popup once, using data from first trigger
-    const firstTrigger = triggers[0];
-    const popup = document.createElement('vital-search-popup');
-    popup.setAttribute('data-version', firstTrigger.dataset.vitalSearchVersion || '0');
-    popup.setAttribute('data-placeholder', firstTrigger.dataset.vitalSearchPlaceholder || 'Search products...');
-    document.body.appendChild(popup);
+    let popup = null;
+
+    /**
+     * Create the popup on first use
+     *
+     * Appending it to the document fires connectedCallback, which loads the
+     * search index. Safe to call repeatedly - the popup is only built once.
+     *
+     * @returns {VitalSearchPopup} The popup element
+     */
+    function ensurePopup() {
+        if (popup) return popup;
+
+        const firstTrigger = triggers[0];
+        popup = document.createElement('vital-search-popup');
+        popup.setAttribute('data-version', firstTrigger.dataset.vitalSearchVersion || '0');
+        popup.setAttribute('data-placeholder', firstTrigger.dataset.vitalSearchPlaceholder || 'Search products...');
+        document.body.appendChild(popup);
+        return popup;
+    }
+
+    // Start loading on intent so the index is usually ready by the time the
+    // popup opens. Pointer/focus fire well before click; touchstart covers mobile.
+    const warmOptions = { once: true, passive: true };
+    function warmOnIntent(element) {
+        element.addEventListener('pointerenter', ensurePopup, warmOptions);
+        element.addEventListener('touchstart', ensurePopup, warmOptions);
+        element.addEventListener('focus', ensurePopup, warmOptions);
+    }
 
     // Enhance all trigger links
     triggers.forEach(link => {
+        warmOnIntent(link);
         link.addEventListener('click', (e) => {
             e.preventDefault();
-            popup.show();
+            ensurePopup().show();
         });
     });
 
     // Replace Storefront handheld footer bar search with vital-search
     const handheldSearchLink = document.querySelector('.storefront-handheld-footer-bar li.search > a');
     if (handheldSearchLink) {
+        warmOnIntent(handheldSearchLink);
         // Capture click before Storefront's handler (use capture phase)
         handheldSearchLink.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            popup.show();
+            ensurePopup().show();
         }, true);
     }
 
