@@ -359,15 +359,12 @@ class VitalSearchPopup extends HTMLElement {
         }
 
         await Promise.all(pending);
-        console.log('[Vital Search] Libraries loaded');
     }
 
     async initDatabase() {
         const DB_NAME = 'vital-search';
         const DB_VERSION = 1;
         const messageEl = this.shadowRoot.getElementById('message');
-
-        console.log('[Vital Search] Initializing database...');
 
         try {
             await this.loadLibraries();
@@ -379,10 +376,8 @@ class VitalSearchPopup extends HTMLElement {
         }
 
         try {
-            console.log('[Vital Search] Opening IndexedDB...');
             this.db = await idb.openDB(DB_NAME, DB_VERSION, {
                 upgrade(db) {
-                    console.log('[Vital Search] Upgrading IndexedDB schema...');
                     if (!db.objectStoreNames.contains('items')) {
                         db.createObjectStore('items', { keyPath: 'id' });
                     }
@@ -391,14 +386,12 @@ class VitalSearchPopup extends HTMLElement {
                     }
                 }
             });
-            console.log('[Vital Search] IndexedDB opened successfully');
 
             this.flexIndex = new FlexSearch.Index({
                 tokenize: 'forward',
                 cache: 100,
                 resolution: 9
             });
-            console.log('[Vital Search] FlexSearch index created');
 
             await this.loadItems();
         } catch (error) {
@@ -411,22 +404,14 @@ class VitalSearchPopup extends HTMLElement {
     async loadItems() {
         const messageEl = this.shadowRoot.getElementById('message');
 
-        console.log('[Vital Search] Loading items...');
-        console.log('[Vital Search] vitalSearch config:', window.vitalSearch);
-
         try {
             const cachedMeta = await this.db.get('meta', 'version');
             const serverVersion = window.vitalSearch?.version?.toString() || this.dataVersion;
-            console.log('[Vital Search] Cached version:', cachedMeta?.value, 'Server version:', serverVersion);
 
             if (cachedMeta && cachedMeta.value === serverVersion) {
-                console.log('[Vital Search] Using cached data');
                 this.items = await this.db.getAll('items');
             } else {
-                console.log('[Vital Search] Fetching fresh data...');
-
                 const jsonUrl = window.vitalSearch?.jsonUrl || '/wp-content/uploads/search-index.json';
-                console.log('[Vital Search] Fetching from:', jsonUrl);
                 // The index URL carries its version, so a given URL always
                 // returns the same bytes. force-cache lets the browser reuse
                 // its copy without a revalidation round trip.
@@ -440,7 +425,6 @@ class VitalSearchPopup extends HTMLElement {
                 }
 
                 const data = await response.json();
-                console.log('[Vital Search] Received', data.items?.length, 'items');
 
                 const tx = this.db.transaction(['items', 'meta'], 'readwrite');
                 const itemStore = tx.objectStore('items');
@@ -470,7 +454,6 @@ class VitalSearchPopup extends HTMLElement {
                 this.items = data.items;
             }
 
-            console.log('[Vital Search] Building search index with', this.items.length, 'items');
             this.items.forEach(item => {
                 // Don't index category names for products (type === 'product' or undefined)
                 const isProduct = !item.type || item.type === 'product';
@@ -482,7 +465,7 @@ class VitalSearchPopup extends HTMLElement {
                 ].filter(Boolean).join(' ');
                 this.flexIndex.add(item.id, searchText);
             });
-            console.log('[Vital Search] Search index ready');
+
             this.indexReady = true;
 
             // Run any query typed while the index was still loading
@@ -518,7 +501,6 @@ class VitalSearchPopup extends HTMLElement {
         const resultsEl = this.shadowRoot.getElementById('results');
         const searchInput = this.shadowRoot.getElementById('search');
         const statusEl = this.shadowRoot.getElementById('status');
-        console.log('[Vital Search] Searching for:', query);
         this.selectedIndex = -1; // Reset selection on new search
         searchInput.removeAttribute('aria-activedescendant');
 
@@ -537,9 +519,7 @@ class VitalSearchPopup extends HTMLElement {
             return;
         }
 
-        console.log('[Vital Search] Items count:', this.items.length);
         const ids = this.flexIndex.search(query, { limit: 15 });
-        console.log('[Vital Search] Found', ids.length, 'results:', ids);
 
         if (ids.length === 0) {
             resultsEl.innerHTML = '<div class="no-results">No results found</div>';
