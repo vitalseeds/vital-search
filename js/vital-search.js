@@ -446,17 +446,26 @@ class VitalSearchPopup extends HTMLElement {
                 const itemStore = tx.objectStore('items');
                 const metaStore = tx.objectStore('meta');
 
-                await itemStore.clear();
+                // Issue every write up front and await them together. Awaiting
+                // each put in turn serialises one round trip per item through
+                // the transaction, and the gaps between those awaits can let
+                // the transaction go inactive before the writes finish.
+                // Requests are processed in the order they are made, so the
+                // clear still happens before the puts.
+                const writes = [itemStore.clear()];
+
                 for (const item of data.items) {
-                    await itemStore.put(item);
+                    writes.push(itemStore.put(item));
                 }
+
                 // Record the version this cache was fetched against, which is
                 // the one the freshness check above compares. Recording the
                 // version from the JSON body instead would never match when a
                 // cached response lags the page, refetching and rewriting every
                 // item on every page load rather than once.
-                await metaStore.put({ key: 'version', value: serverVersion });
-                await tx.done;
+                writes.push(metaStore.put({ key: 'version', value: serverVersion }));
+
+                await Promise.all([...writes, tx.done]);
 
                 this.items = data.items;
             }

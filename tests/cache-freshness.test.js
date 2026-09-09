@@ -26,7 +26,8 @@ const FLEXSEARCH = path.join(__dirname, '..', 'vendor', 'flexsearch.bundle.min.j
  * @param {Object} sharedIdb idb stub shared across the runs
  * @param {number|string} pageVersion Version the page advertises
  * @param {Object} body Index payload the server returns
- * @returns {Promise<number>} Fetches made during this page view
+ * @returns {Promise<{fetches: number, items: number}>} Fetches made during
+ *          this page view, and how many items the popup ended up holding
  */
 function visitPage(sharedIdb, pageVersion, body) {
     return new Promise(resolve => {
@@ -48,7 +49,10 @@ function visitPage(sharedIdb, pageVersion, body) {
         bootstrapPlugin(window, fs.readFileSync(PLUGIN_JS, 'utf8')).then(() => {
             window.document.querySelector('[data-vital-search-trigger]')
                 .dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
-            setTimeout(() => resolve(fetches), 400);
+            setTimeout(() => {
+                const popup = window.document.querySelector('vital-search-popup');
+                resolve({ fetches, items: popup ? popup.items.length : 0 });
+            }, 400);
         });
     });
 }
@@ -57,22 +61,30 @@ function visitPage(sharedIdb, pageVersion, body) {
     // One IndexedDB, as a real visitor would have across page views
     const sharedIdb = makeIdbStub();
 
+    const total = INDEX.items.length;
+
     const first = await visitPage(sharedIdb, 500, { ...INDEX, version: 500 });
-    check('first visit fetches the index', first === 1);
+    check('first visit fetches the index', first.fetches === 1);
+    check('first visit loads every item', first.items === total);
 
     const second = await visitPage(sharedIdb, 500, { ...INDEX, version: 500 });
-    check('second visit at the same version uses the cache', second === 0);
+    check('second visit at the same version uses the cache', second.fetches === 0);
+    // Reads back what the batched write persisted. A partial batch, or a
+    // clear that landed after the puts, would show up as a short count here.
+    check('cached visit restores every item', second.items === total);
 
     const third = await visitPage(sharedIdb, 600, { ...INDEX, version: 600 });
-    check('a new version refetches', third === 1);
+    check('a new version refetches', third.fetches === 1);
+    check('refetched visit loads every item', third.items === total);
 
     // A stale cached body: the page says 700, the response still says 600.
     const stale = makeIdbStub();
     const staleFirst = await visitPage(stale, 700, { ...INDEX, version: 600 });
-    check('stale cached body still fetches once', staleFirst === 1);
+    check('stale cached body still fetches once', staleFirst.fetches === 1);
 
     const staleSecond = await visitPage(stale, 700, { ...INDEX, version: 600 });
-    check('stale cached body does not refetch on every page load', staleSecond === 0);
+    check('stale cached body does not refetch on every page load', staleSecond.fetches === 0);
+    check('stale cached body still restores every item', staleSecond.items === total);
 
     report();
 })();
