@@ -159,6 +159,109 @@ function vital_search_get_thumbnail_url($thumbnail_id) {
 }
 
 /**
+ * Get the filename of a versioned search index
+ *
+ * The version is part of the filename so the file can be treated as
+ * immutable: a given URL always returns the same bytes.
+ *
+ * @param int $version Index version timestamp
+ * @return string Filename
+ */
+function vital_search_get_index_filename($version) {
+    return 'search-index-' . (int) $version . '.json';
+}
+
+/**
+ * Get the public URL of the current search index
+ *
+ * Uses the filename recorded by the last export rather than deriving it
+ * from the version. On an existing install the version option predates
+ * versioned filenames, so deriving the name would point at a file that
+ * was never written until the next export ran.
+ *
+ * @return string Index URL
+ */
+function vital_search_get_index_url() {
+    $upload_dir = wp_upload_dir();
+    $filename = get_option('vital_search_index_file', '');
+
+    // No versioned index written yet, fall back to the unversioned path
+    if (!$filename) {
+        return $upload_dir['baseurl'] . '/search-index.json';
+    }
+
+    return $upload_dir['baseurl'] . '/' . $filename;
+}
+
+/**
+ * Extract the version from a versioned index filename
+ *
+ * @param string $path File path
+ * @return int Version, or 0 if the name does not carry one
+ */
+function vital_search_version_from_filename($path) {
+    if (preg_match('/^search-index-(\d+)\.json$/', basename($path), $matches)) {
+        return (int) $matches[1];
+    }
+    return 0;
+}
+
+/**
+ * Write a file atomically
+ *
+ * Writes to a temporary file and renames it into place, so a visitor
+ * fetching the index while it is being regenerated cannot read a
+ * half-written file.
+ *
+ * @param string $path Destination path
+ * @param string $contents File contents
+ * @return int|false Bytes written, or false on failure
+ */
+function vital_search_write_file_atomic($path, $contents) {
+    $temp_path = $path . '.tmp';
+
+    $bytes_written = file_put_contents($temp_path, $contents, LOCK_EX);
+    if ($bytes_written === false) {
+        return false;
+    }
+
+    if (!rename($temp_path, $path)) {
+        @unlink($temp_path);
+        return false;
+    }
+
+    return $bytes_written;
+}
+
+/**
+ * Delete superseded versioned index files
+ *
+ * Keeps the most recent few. Page HTML cached before the latest export
+ * still references an older index URL, so those files must outlive the
+ * export that replaced them.
+ *
+ * @param int $keep Number of index files to retain
+ * @return void
+ */
+function vital_search_prune_old_indexes($keep = 3) {
+    $upload_dir = wp_upload_dir();
+    $files = glob($upload_dir['basedir'] . '/search-index-*.json');
+
+    if (empty($files)) {
+        return;
+    }
+
+    // Newest first, by the version embedded in the filename
+    usort($files, function ($a, $b) {
+        return vital_search_version_from_filename($b) - vital_search_version_from_filename($a);
+    });
+
+    foreach (array_slice($files, $keep) as $old_file) {
+        @unlink($old_file);
+    }
+}
+
+/**
  * Export products, categories and tags to JSON file
  *
  * @param bool $return_details Whether to return detailed result array
@@ -166,9 +269,9 @@ function vital_search_get_thumbnail_url($thumbnail_id) {
  */
 function vital_search_export_json($return_details = false) {
     $upload_dir = wp_upload_dir();
-    $json_path = $upload_dir['basedir'] . '/search-index.json';
 
     $version = time();
+    $json_path = $upload_dir['basedir'] . '/' . vital_search_get_index_filename($version);
 
     $products = vital_search_get_products();
     $categories = vital_search_get_categories();
@@ -184,7 +287,7 @@ function vital_search_export_json($return_details = false) {
     ];
 
     $json = json_encode($data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
-    $bytes_written = file_put_contents($json_path, $json);
+    $bytes_written = vital_search_write_file_atomic($json_path, $json);
 
     if ($bytes_written === false) {
         if ($return_details) {
@@ -197,7 +300,13 @@ function vital_search_export_json($return_details = false) {
         return 0;
     }
 
+    // Keep the unversioned path in sync for page HTML cached before versioned
+    // index URLs shipped. Can be removed once those caches have expired.
+    vital_search_write_file_atomic($upload_dir['basedir'] . '/search-index.json', $json);
+
     update_option('vital_search_version', $version);
+    update_option('vital_search_index_file', vital_search_get_index_filename($version));
+    vital_search_prune_old_indexes();
 
     if ($return_details) {
         return [
@@ -601,7 +710,7 @@ function vital_search_enqueue_assets() {
     );
 
     wp_localize_script('vital-search', 'vitalSearch', [
-        'jsonUrl' => '/wp-content/uploads/search-index.json',
+        'jsonUrl' => vital_search_get_index_url(),
         'version' => get_option('vital_search_version', 0),
         'flexsearchUrl' => VITAL_SEARCH_PLUGIN_URL . 'vendor/flexsearch.bundle.min.js?ver=' . VITAL_SEARCH_FLEXSEARCH_VERSION,
         'idbUrl' => VITAL_SEARCH_PLUGIN_URL . 'vendor/idb.umd.js?ver=' . VITAL_SEARCH_IDB_VERSION,
@@ -634,10 +743,10 @@ add_action('admin_menu', function() {
  */
 function vital_search_admin_page() {
     $upload_dir = wp_upload_dir();
-    $json_path = $upload_dir['basedir'] . '/search-index.json';
-    $json_url = $upload_dir['baseurl'] . '/search-index.json';
-    $json_exists = file_exists($json_path);
     $version = get_option('vital_search_version', 0);
+    $json_url = vital_search_get_index_url();
+    $json_path = $upload_dir['basedir'] . '/' . basename(parse_url($json_url, PHP_URL_PATH));
+    $json_exists = file_exists($json_path);
 
     // Handle settings save
     if (isset($_POST['vital_search_save_settings']) && check_admin_referer('vital_search_settings')) {
@@ -650,6 +759,9 @@ function vital_search_admin_page() {
         $result = vital_search_export_json(true);
         if ($result['success']) {
             $version = $result['version'];
+            // Refresh the displayed paths, a new index file has been written
+            $json_url = vital_search_get_index_url();
+            $json_path = $upload_dir['basedir'] . '/' . vital_search_get_index_filename($version);
             $json_exists = true;
             printf(
                 '<div class="notice notice-success"><p>Search index regenerated! %d products, %d categories, %d tags. File size: %s</p></div>',

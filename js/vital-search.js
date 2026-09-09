@@ -432,7 +432,10 @@ class VitalSearchPopup extends HTMLElement {
 
                 const jsonUrl = window.vitalSearch?.jsonUrl || '/wp-content/uploads/search-index.json';
                 console.log('[Vital Search] Fetching from:', jsonUrl);
-                const response = await fetch(jsonUrl);
+                // The index URL carries its version, so a given URL always
+                // returns the same bytes. force-cache lets the browser reuse
+                // its copy without a revalidation round trip.
+                const response = await fetch(jsonUrl, { cache: 'force-cache' });
 
                 if (!response.ok) {
                     if (response.status === 404) {
