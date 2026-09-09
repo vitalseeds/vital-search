@@ -46,6 +46,7 @@ echo
 
 run_js lazy-init.test.js
 run_js on-demand-libraries.test.js
+run_js cache-freshness.test.js
 
 echo "=== index-files.test.php ==="
 if [ -n "$PHP_BIN" ]; then

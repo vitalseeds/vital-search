@@ -450,7 +450,12 @@ class VitalSearchPopup extends HTMLElement {
                 for (const item of data.items) {
                     await itemStore.put(item);
                 }
-                await metaStore.put({ key: 'version', value: data.version.toString() });
+                // Record the version this cache was fetched against, which is
+                // the one the freshness check above compares. Recording the
+                // version from the JSON body instead would never match when a
+                // cached response lags the page, refetching and rewriting every
+                // item on every page load rather than once.
+                await metaStore.put({ key: 'version', value: serverVersion });
                 await tx.done;
 
                 this.items = data.items;

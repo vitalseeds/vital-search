@@ -27,6 +27,7 @@ the PHP binary Local ships if there is no usable `php` on `PATH`.
 | --- | --- |
 | `lazy-init.test.js` | Nothing is created or fetched until search intent; a query typed while the index is loading shows a loading state and then runs |
 | `on-demand-libraries.test.js` | FlexSearch and idb are not requested on page load, and come from the plugin rather than a public CDN |
+| `cache-freshness.test.js` | The IndexedDB cache is reused across page views, a new version refetches, and a cached response whose version lags the page does not refetch on every page load |
 | `index-files.test.php` | Versioned index filenames, the upgrade fallback, atomic writes, and pruning that spares unrelated files |
 
 ## Notes
