@@ -9,7 +9,7 @@
  * License: GPL-2.0+
  * License URI: http://www.gnu.org/licenses/gpl-2.0.txt
  * Text Domain: vital-search
- * Requires at least: 5.0
+ * Requires at least: 6.3
  * Requires PHP: 7.4
  * WC requires at least: 5.0
  */
@@ -23,6 +23,9 @@ define('VITAL_SEARCH_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('VITAL_SEARCH_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('VITAL_SEARCH_CRON_HOOK', 'vital_search_export');
 define('VITAL_SEEDS_CATEGORY_SLUG', 'seeds');
+// Versions of the self-hosted libraries in vendor/, used for cache busting
+define('VITAL_SEARCH_FLEXSEARCH_VERSION', '0.7.31');
+define('VITAL_SEARCH_IDB_VERSION', '7.1.1');
 /**
  * Schedule the daily cron job if not already scheduled
  */
@@ -582,33 +585,26 @@ function vital_search_enqueue_assets() {
     if ($enqueued) return;
     $enqueued = true;
 
-    wp_enqueue_script(
-        'flexsearch',
-        'https://cdn.jsdelivr.net/npm/flexsearch@0.7.31/dist/flexsearch.bundle.min.js',
-        [],
-        '0.7.31',
-        true
-    );
-
-    wp_enqueue_script(
-        'idb',
-        'https://cdn.jsdelivr.net/npm/idb@7/build/umd.js',
-        [],
-        '7.1.1',
-        true
-    );
-
+    // FlexSearch and idb are self-hosted and loaded by vital-search.js only
+    // once the visitor opens search. Enqueueing them here would put two
+    // blocking script requests on every page load for libraries most
+    // visitors never need.
     wp_enqueue_script(
         'vital-search',
         VITAL_SEARCH_PLUGIN_URL . 'js/vital-search.js',
-        ['flexsearch', 'idb'],
+        [],
         VITAL_SEARCH_VERSION,
-        true
+        [
+            'strategy' => 'defer',
+            'in_footer' => true,
+        ]
     );
 
     wp_localize_script('vital-search', 'vitalSearch', [
         'jsonUrl' => '/wp-content/uploads/search-index.json',
         'version' => get_option('vital_search_version', 0),
+        'flexsearchUrl' => VITAL_SEARCH_PLUGIN_URL . 'vendor/flexsearch.bundle.min.js?ver=' . VITAL_SEARCH_FLEXSEARCH_VERSION,
+        'idbUrl' => VITAL_SEARCH_PLUGIN_URL . 'vendor/idb.umd.js?ver=' . VITAL_SEARCH_IDB_VERSION,
     ]);
 
     wp_enqueue_style(

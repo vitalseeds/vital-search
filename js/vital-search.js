@@ -4,6 +4,41 @@
  * Uses FlexSearch for fast client-side search with IndexedDB caching.
  * Searches both products and categories.
  */
+
+/**
+ * Load an external script once, resolving when it has executed
+ *
+ * Repeated calls for the same URL share a single promise, so the script
+ * is only ever requested once per page.
+ *
+ * @param {string} url Script URL
+ * @returns {Promise<void>}
+ */
+const vitalSearchScriptCache = {};
+function vitalSearchLoadScript(url) {
+    if (!url) {
+        return Promise.reject(new Error('No script URL configured'));
+    }
+    if (vitalSearchScriptCache[url]) {
+        return vitalSearchScriptCache[url];
+    }
+
+    vitalSearchScriptCache[url] = new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = url;
+        script.async = true;
+        script.onload = () => resolve();
+        script.onerror = () => {
+            // Allow a later attempt to retry rather than caching the failure
+            delete vitalSearchScriptCache[url];
+            reject(new Error('Failed to load ' + url));
+        };
+        document.head.appendChild(script);
+    });
+
+    return vitalSearchScriptCache[url];
+}
+
 class VitalSearchPopup extends HTMLElement {
     constructor() {
         super();
@@ -296,22 +331,55 @@ class VitalSearchPopup extends HTMLElement {
         searchInput.addEventListener('keydown', (e) => this.handleKeyNav(e));
     }
 
+    /**
+     * Load FlexSearch and idb on demand
+     *
+     * These are only needed once the visitor opens search, so they are not
+     * enqueued with the page. Loading them here keeps two render-path script
+     * requests off every page load.
+     *
+     * @returns {Promise<void>}
+     */
+    async loadLibraries() {
+        const needsFlexSearch = typeof FlexSearch === 'undefined';
+        const needsIdb = typeof idb === 'undefined';
+
+        if (!needsFlexSearch && !needsIdb) {
+            return;
+        }
+
+        const loadingEl = this.shadowRoot.getElementById('loading');
+        loadingEl.textContent = 'Loading search...';
+        loadingEl.hidden = false;
+
+        const config = window.vitalSearch || {};
+        const pending = [];
+
+        if (needsFlexSearch) {
+            pending.push(vitalSearchLoadScript(config.flexsearchUrl));
+        }
+        if (needsIdb) {
+            pending.push(vitalSearchLoadScript(config.idbUrl));
+        }
+
+        await Promise.all(pending);
+        console.log('[Vital Search] Libraries loaded');
+    }
+
     async initDatabase() {
         const DB_NAME = 'vital-search';
         const DB_VERSION = 1;
         const loadingEl = this.shadowRoot.getElementById('loading');
 
         console.log('[Vital Search] Initializing database...');
-        console.log('[Vital Search] idb available:', typeof idb !== 'undefined');
-        console.log('[Vital Search] FlexSearch available:', typeof FlexSearch !== 'undefined');
 
-        // Wait for libraries to be available
-        if (typeof idb === 'undefined' || typeof FlexSearch === 'undefined') {
-            console.log('[Vital Search] Libraries not ready, retrying in 100ms...');
-            loadingEl.textContent = 'Loading search libraries...';
+        try {
+            await this.loadLibraries();
+        } catch (error) {
+            console.error('[Vital Search] Failed to load libraries:', error);
+            loadingEl.textContent = 'Failed to load search. Please try again.';
             loadingEl.hidden = false;
-            await new Promise(resolve => setTimeout(resolve, 100));
-            return this.initDatabase(); // Retry
+            return;
         }
 
         try {
